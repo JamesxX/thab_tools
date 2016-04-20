@@ -56,61 +56,95 @@ local TimerInMins = 1
 local PlayersAtFirstCheck = -1
 local version = 2
 
+local provider = "flatfile"
+
+-- For MySQL
+
+local function MaptractorSave( )
+	
+	if ( provider == "flatfile" ) then
+		
+		return file.Write( "maptractor.txt", util.TableToJSON(MaptractorTable), true) 
+		
+	elseif ( provider == "MySQL" ) then
+
+		
+	end
+	
+end
+
+local function MaptractorLoad( cb )
+	
+	if ( provider == "flatfile" ) then
+		
+		if !file.Exists( "maptractor.txt", "DATA" ) then
+			file.Write( "maptractor.txt", util.TableToJSON(MaptractorTable) ) 
+		end
+		MaptractorTable = util.JSONToTable( file.Read( "maptractor.txt", "DATA" )
+		cb( )
+		
+		return true
+		
+	elseif ( provider == "MySQL" ) then
+		
+		
+	end
+	
+	return false
+end
+
 local function MaptractorInit()
 
 	print("Initializing maptractor...")
-	if !file.Exists( "maptractor.txt", "DATA" ) then
-		file.Write( "maptractor.txt", util.TableToJSON(MaptractorTable) ) 
-	end
 	
-	local MaptractorData = file.Read( "maptractor.txt", "DATA" ) 
-	MaptractorTable = util.JSONToTable(MaptractorData)
-	
-	-- does map exist
-	if (MaptractorTable[game.GetMap()] == null) then
-		MaptractorTable[game.GetMap()] = {}
-	end
-	
-	-- data version check
-	if (MaptractorTable[game.GetMap()].version == null) then
-		MaptractorTable[game.GetMap()] = {}
-	end
-	
-	local MapStats = MaptractorTable[game.GetMap()]
-	
-	-- safety valve, for new maps and/or newly added metrics and old data
-	if (MapStats.playerscore == nil) then MapStats.playerscore = 0 end
-	if (MapStats.magnetscore == nil) then MapStats.magnetscore = 0 end
-	if (MapStats.timempty == nil) then MapStats.timempty = 0 end
-	if (MapStats.totaltime == nil) then MapStats.totaltime = 0 end
-	
-	MapStats.version = version
-	file.Write( "maptractor.txt", util.TableToJSON(MaptractorTable), true) 
-	
-	
-	timer.Create( "MaptractorTimer", TimerInMins * 60, 0, function() 
-	
-		if (PlayersAtFirstCheck == -1) then
-			PlayersAtFirstCheck = #player.GetAll()
+	MaptractorLoad( function( )
+		
+		-- does map exist
+		if (MaptractorTable[game.GetMap()] == null) then
+			MaptractorTable[game.GetMap()] = {}
+		end
+		
+		-- data version check
+		if (MaptractorTable[game.GetMap()].version == null) then
+			MaptractorTable[game.GetMap()] = {}
 		end
 		
 		local MapStats = MaptractorTable[game.GetMap()]
 		
-		-- let's calc some stats, bitches!
-		MapStats.totaltime = MapStats.totaltime + TimerInMins
-		MapStats.playerscore = MapStats.playerscore + #player.GetAll()
-		MapStats.magnetscore = MapStats.magnetscore + (#player.GetAll() - PlayersAtFirstCheck)
+		-- safety valve, for new maps and/or newly added metrics and old data
+		if (MapStats.playerscore == nil) then MapStats.playerscore = 0 end
+		if (MapStats.magnetscore == nil) then MapStats.magnetscore = 0 end
+		if (MapStats.timempty == nil) then MapStats.timempty = 0 end
+		if (MapStats.totaltime == nil) then MapStats.totaltime = 0 end
 		
-		MapStats.playermetric = MapStats.playerscore / MapStats.totaltime
-		MapStats.magnetmetric = MapStats.magnetscore / MapStats.totaltime
+		MapStats.version = version
+		MaptractorSave( )
 		
-		if (#player.GetAll() == 0) then
-			MapStats.timempty = MapStats.timempty + TimerInMins
-		end
 		
-		file.Write( "maptractor.txt", util.TableToJSON(MaptractorTable, true) ) 
+		timer.Create( "MaptractorTimer", TimerInMins * 60, 0, function() 
+		
+			if (PlayersAtFirstCheck == -1) then
+				PlayersAtFirstCheck = #player.GetAll()
+			end
+			
+			local MapStats = MaptractorTable[game.GetMap()]
+			
+			-- let's calc some stats, bitches!
+			MapStats.totaltime = MapStats.totaltime + TimerInMins
+			MapStats.playerscore = MapStats.playerscore + #player.GetAll()
+			MapStats.magnetscore = MapStats.magnetscore + (#player.GetAll() - PlayersAtFirstCheck)
+			
+			MapStats.playermetric = MapStats.playerscore / MapStats.totaltime
+			MapStats.magnetmetric = MapStats.magnetscore / MapStats.totaltime
+			
+			if (#player.GetAll() == 0) then
+				MapStats.timempty = MapStats.timempty + TimerInMins
+			end
+			
+			MaptractorSave( )
+		end)
+		
 	end)
-	
 
 end
 hook.Add( "Initialize", "MaptractorInit", MaptractorInit )
